@@ -1,0 +1,57 @@
+import cv2 
+import numpy as np 
+import time 
+ 
+# Function to convert an RGB image to grayscale (sequential) 
+def rgb_to_gray(image): 
+    height, width, channels = image.shape 
+    gray_image = np.zeros((height, width), dtype=np.uint8) 
+ 
+    # Loop through every pixel (sequential) 
+    for i in range(height): 
+        for j in range(width): 
+            r, g, b = image[i, j] 
+            gray = int(0.2989 * r + 0.5870 * g + 0.1140 * b) 
+            gray_image[i, j] = gray 
+ 
+    return gray_image 
+ 
+# Main benchmarking function 
+def benchmark_images(): 
+    # Read the input image 
+    image = cv2.imread("input_image.jpg") 
+    if image is None: 
+        print("Error: Image not found.") 
+        return 
+ 
+    # Define test sizes 
+    sizes = [(512, 512), (1024, 1024), (2048, 2048)] 
+ 
+    print("\n📊 Sequential Grayscale Conversion Benchmark\n") 
+    print(f"{'Image Size':<15} {'Execution Time (seconds)':<25}") 
+    print("-" * 40) 
+ 
+    for size in sizes: 
+        resized = cv2.resize(image, size) 
+ 
+        # Measure start time 
+        start_time = time.perf_counter() 
+ 
+        # Convert to grayscale 
+        gray_image = rgb_to_gray(resized)  
+        # Measure end time 
+        end_time = time.perf_counter() 
+ 
+        execution_time = end_time - start_time 
+ 
+        # Save output image 
+        output_name = f"grayscale_{size[0]}x{size[1]}.jpg" 
+        cv2.imwrite(output_name, gray_image) 
+ 
+        # Print results 
+        print(f"{str(size):<15} {execution_time:<25.4f}") 
+ 
+    print("\n✅ Benchmarking complete! Check the saved grayscale images.\n") 
+ 
+# Run benchmark 
+benchmark_images() 
