@@ -1,0 +1,84 @@
+import cv2
+import numpy as np
+import time
+import concurrent.futures
+import os
+
+# Function that runs independently in each process, convert a chunk of image into grayscale
+def process_chunk(image, start_row, end_row):
+    gray_part= np.zeros((end_row - start_row, image.shape[1]), dtype=np.uint8)
+
+    #Parallelized section: (same loop as sequintial code)
+    for i in range(start_row, end_row):
+        for j in range(image.shape[1]):
+            r, g, b = image[i, j]
+            gray = int(0.2989 * r + 0.5870 * g + 0.1140 * b)
+            gray_part[i - start_row, j] = gray
+
+    return (start_row, gray_part)
+
+#Parallel version of grayscale conversion
+def rgb_to_gray_parallel(image, num_workers=os.cpu_count()):
+    hight, width, _ = image.shape
+    chunk_size = hight // num_workers
+    futures = []
+
+    #Shared placeholder for final image
+    gray_image = np.zeros((hight, width), dtype=np.uint8)
+
+    # Section excuted in parallel
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as excutor:
+        for i in range(num_workers):
+            start = i * chunk_size
+            end = hight if i == num_workers - 1 else (i+1) * chunk_size
+            futures.append(excutor.submit(process_chunk, image, start, end))
+        
+        for f in concurrent.futures.as_completed(futures):
+            start_row, gray_part = f.result()
+
+            #POTENTIAL RACE CONDITION:
+            gray_image[start_row:start_row + gray_part.shape[0], :] = gray_part
+        
+        return gray_image
+
+# Main benchmarking function
+def benchmark_images():
+    # Read the input image
+    image = cv2.imread("input_image.jpg")
+    if image is None:
+        print("Error: Image not found.")
+        return
+
+    # Define test sizes
+    sizes = [(512, 512), (1024, 1024), (2048, 2048)]
+
+    print("\n📊 Sequential Grayscale Conversion Benchmark\n")
+    print(f"{'Image Size':<15} {'Execution Time (seconds)':<25}")
+    print("-" * 40)
+
+    for size in sizes:
+        resized = cv2.resize(image, size)
+
+        # Measure start time
+        start_time = time.perf_counter()
+
+        # Convert to grayscale
+        gray_image = rgb_to_gray_parallel(resized, num_workers= 4)
+
+        # Measure end time
+        end_time = time.perf_counter()
+
+        execution_time = end_time - start_time
+
+        # Save output image
+        output_name = f"grayscale_{size[0]}x{size[1]}.jpg"
+        cv2.imwrite(output_name, gray_image)
+
+        # Print results
+        print(f"{str(size):<15} {execution_time:<25.4f}")
+
+    print("\n✅ Benchmarking complete! Check the saved grayscale images.\n")
+
+# Run benchmark
+if __name__ == "__main__":
+    benchmark_images()
