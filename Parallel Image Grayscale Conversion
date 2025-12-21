@@ -1,0 +1,75 @@
+import cv2
+import numpy as np
+import time
+import concurrent.futures
+import os
+import threading
+
+# Function that runs independently in each thread
+def process_chunk(image, gray_image, start_row, end_row, lock):
+    gray_part = np.zeros((end_row - start_row, image.shape[1]), dtype=np.uint8)
+
+    for i in range(start_row, end_row):
+        for j in range(image.shape[1]):
+            b, g, r = image[i, j]
+            gray = int(0.2989 * r + 0.5870 * g + 0.1140 * b)
+            gray_part[i - start_row, j] = gray
+
+    lock.acquire()
+    try:
+        gray_image[start_row:start_row + gray_part.shape[0], :] = gray_part
+    finally:
+        lock.release()
+
+def rgb_to_gray_parallel(image, num_workers=os.cpu_count()):
+    height, width, _ = image.shape
+    chunk_size = height // num_workers
+
+    gray_image = np.zeros((height, width), dtype=np.uint8)
+    lock = threading.Lock()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = []
+        for i in range(num_workers):
+            start = i * chunk_size
+            end = height if i == num_workers - 1 else (i + 1) * chunk_size
+            futures.append(executor.submit(process_chunk, image, gray_image, start, end, lock))
+
+        concurrent.futures.wait(futures)
+
+    return gray_image
+
+def benchmark_images():
+    img_path = "/content/75df0699-b633-4e87-8297-52a779e4204f.jpeg"
+
+    print("Using path:", img_path)
+    print("Exists?", os.path.exists(img_path))
+
+    image = cv2.imread(img_path)
+
+    if image is None:
+        print("Error: Image not found.")
+        return
+
+    sizes = [(512, 512), (1024, 1024), (2048, 2048)]
+
+    print("\nParallel Grayscale Conversion Benchmark (LOCK)\n")
+    print(f"{'Image Size':<15} {'Execution Time (seconds)':<25}")
+    print("-" * 40)
+
+    for size in sizes:
+        resized = cv2.resize(image, size)
+
+        start_time = time.perf_counter()
+        gray_image = rgb_to_gray_parallel(resized, num_workers=4)
+        end_time = time.perf_counter()
+
+        execution_time = end_time - start_time
+        output_name = f"grayscale_{size[0]}x{size[1]}_lock.jpg"
+        cv2.imwrite(output_name, gray_image)
+
+        print(f"{str(size):<15} {execution_time:<25.4f}")
+
+    print("\nDone! Check saved images.\n")
+
+   benchmark_images()
