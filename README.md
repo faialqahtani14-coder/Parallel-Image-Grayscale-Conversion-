@@ -1,7 +1,7 @@
  # Parallel Image Grayscale Conversion
 This repository contains the implementation and experiments for a project on
 parallel RGB-to-grayscale image conversion using Python.
- we offer Parallel Image Grayscale Conversion, which uses data parallelism to speed up the grayscale converting process.
+This project presents a Parallel Image Grayscale Conversion approach, which uses data parallelism to speed up the grayscale converting process.
  The objective is to emphasize the function of parallelization in contemporary image processing systems and show how it dramatically boosts performance when compared to  sequential execution
 
 
